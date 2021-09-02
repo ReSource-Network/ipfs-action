@@ -83,6 +83,6 @@ module.exports = {
         console.log(err);
       });
 
-    return;
+    return newHash;
   },
 };
