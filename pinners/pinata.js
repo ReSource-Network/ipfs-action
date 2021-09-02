@@ -1,24 +1,24 @@
-const pinataSDK = require('@pinata/sdk');
-const fsPath = require('path');
+const pinataSDK = require("@pinata/sdk");
+const fsPath = require("path");
 
 let pinataOptions = {
   pinataOptions: {
     cidVersion: 0,
-    wrapWithDirectory: false
-  }
-}
+    wrapWithDirectory: false,
+  },
+};
 
 module.exports = {
-  name: 'Pinata',
+  name: "Pinata",
   builder: async (options) => {
     const { pinataKey, pinataSecret } = options;
 
     if (!pinataKey) {
-      throw new Error('PinataKey is empty');
+      throw new Error("PinataKey is empty");
     }
 
     if (!pinataSecret) {
-      throw new Error('PinataSecret is empty');
+      throw new Error("PinataSecret is empty");
     }
 
     return pinataSDK(pinataKey, pinataSecret);
@@ -37,17 +37,52 @@ module.exports = {
         ...pinataOptions,
         pinataMetadata: {
           name: pinataPinName,
-        }
-      }
+        },
+      };
     }
 
-    return api.pinFromFS(source, pinataOptions)
+    const newHash = api.pinFromFS(source, pinataOptions).then((result) => {
+      return result.IpfsHash;
+    });
+
+    function unpinHash(hashToUnpin) {
+      api
+        .unpin(hashToUnpin)
+        .then((result) => {
+          if (verbose) {
+            console.log(result);
+          }
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    }
+
+    const metadataFilter = {
+      name: pinataPinName,
+    };
+    const filters = {
+      status: "pinned",
+      pageLimit: 1000,
+      pageOffset: 0,
+      metadata: metadataFilter,
+    };
+    api
+      .pinList(filters)
       .then((result) => {
         if (verbose) {
           console.log(result);
         }
-
-        return result.IpfsHash;
+        result.rows.forEach((element) => {
+          if (element.ipfs_pin_hash != newHash) {
+            unpinHash(element.ipfs_pin_hash);
+          }
+        });
+      })
+      .catch((err) => {
+        console.log(err);
       });
-  }
-}
+
+    return;
+  },
+};
